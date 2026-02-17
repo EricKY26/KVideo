@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { VideoHistoryItem, Episode } from '@/lib/types';
 import { clearSegmentsForUrl, clearAllCache } from '@/lib/utils/cacheManager';
+import { profiledKey } from '@/lib/utils/profile-storage';
 
 const MAX_HISTORY_ITEMS = 50;
 
@@ -24,7 +25,8 @@ interface HistoryActions {
     playbackPosition: number,
     duration: number,
     poster?: string,
-    episodes?: Episode[]
+    episodes?: Episode[],
+    metadata?: { vod_actor?: string; type_name?: string; vod_area?: string }
   ) => void;
 
   removeFromHistory: (videoId: string | number, source: string) => void;
@@ -60,7 +62,8 @@ const createHistoryStore = (name: string) =>
           playbackPosition,
           duration,
           poster,
-          episodes = []
+          episodes = [],
+          metadata
         ) => {
           const showIdentifier = generateShowIdentifier(title, source, videoId);
           const timestamp = Date.now();
@@ -83,6 +86,9 @@ const createHistoryStore = (name: string) =>
                 duration,
                 timestamp,
                 episodes: episodes.length > 0 ? episodes : state.viewingHistory[existingIndex].episodes,
+                vod_actor: metadata?.vod_actor ?? state.viewingHistory[existingIndex].vod_actor,
+                type_name: metadata?.type_name ?? state.viewingHistory[existingIndex].type_name,
+                vod_area: metadata?.vod_area ?? state.viewingHistory[existingIndex].vod_area,
               };
 
               newHistory = [
@@ -103,6 +109,9 @@ const createHistoryStore = (name: string) =>
                 poster,
                 episodes,
                 showIdentifier,
+                vod_actor: metadata?.vod_actor,
+                type_name: metadata?.type_name,
+                vod_area: metadata?.vod_area,
               };
 
               newHistory = [newItem, ...state.viewingHistory];
@@ -151,8 +160,8 @@ const createHistoryStore = (name: string) =>
     )
   );
 
-export const useHistoryStore = createHistoryStore('kvideo-history-store');
-export const usePremiumHistoryStore = createHistoryStore('kvideo-premium-history-store');
+export const useHistoryStore = createHistoryStore(profiledKey('kvideo-history-store'));
+export const usePremiumHistoryStore = createHistoryStore(profiledKey('kvideo-premium-history-store'));
 
 /**
  * Helper hook to get the appropriate history store
