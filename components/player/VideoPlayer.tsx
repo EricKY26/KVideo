@@ -23,6 +23,8 @@ interface VideoPlayerProps {
   // Danmaku props
   videoTitle?: string;
   episodeName?: string;
+  // Expose current time to parent
+  externalTimeRef?: React.MutableRefObject<number>;
 }
 
 export function VideoPlayer({
@@ -36,6 +38,7 @@ export function VideoPlayer({
   isPremium = false,
   videoTitle,
   episodeName,
+  externalTimeRef,
 }: VideoPlayerProps) {
   const [videoError, setVideoError] = useState<string>('');
   const [useProxy, setUseProxy] = useState(false);
@@ -92,17 +95,19 @@ export function VideoPlayer({
 
   // Get saved progress for this video
   const getSavedProgress = () => {
+    // Check for explicit time parameter (from source switch)
+    const timeParam = searchParams.get('t');
+    if (timeParam) {
+      const t = parseFloat(timeParam);
+      if (t > 0 && isFinite(t)) return t;
+    }
+
     if (!videoId) return 0;
 
-    // Directly check HistoryStore for progress
-    // We prioritize a strict match (including source), but fall back to any match for this video/episode
-    // This fixes issues where the source parameter might be missing or different
+    // Match by normalized title + episode index (source-agnostic)
+    const normalizedTitle = title.toLowerCase().trim();
     const historyItem = viewingHistory.find(item =>
-      item.videoId.toString() === videoId?.toString() &&
-      item.episodeIndex === currentEpisode &&
-      (source ? item.source === source : true)
-    ) || viewingHistory.find(item =>
-      item.videoId.toString() === videoId?.toString() &&
+      item.title.toLowerCase().trim() === normalizedTitle &&
       item.episodeIndex === currentEpisode
     );
 
@@ -130,6 +135,8 @@ export function VideoPlayer({
     // Always track current time for beforeunload
     currentTimeRef.current = currentTime;
     durationRef.current = duration;
+    // Expose to parent for source switching
+    if (externalTimeRef) externalTimeRef.current = currentTime;
 
     if (!videoId || !playUrl || duration === 0) return;
 
